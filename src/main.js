@@ -4,37 +4,10 @@ const ctx = canvas.getContext('2d');
 
 const angle = 2 * Math.PI / 6; // 60 degrees
 const radius = 50;
-const origin = {
-  x: canvas.width / 2,
-  y: canvas.height / 2
-}
-
-const directions = new Map();
-directions.set('downRight', {
-  x: origin.x + radius * (1 + Math.cos(angle)),
-  y: origin.y + radius * Math.sin(angle)
-});
-directions.set('upRight', {
-  x: origin.x + radius * (1 + Math.cos(angle)),
-  y: origin.y - radius * Math.sin(angle)
-});
-directions.set('upLeft', {
-  x: origin.x - radius * (1 + Math.cos(angle)),
-  y: origin.y - radius * Math.sin(angle)
-});
-directions.set('downLeft', {
-  x: origin.x - radius * (1 + Math.cos(angle)),
-  y: origin.y + radius * Math.sin(angle)
-});
-directions.set('down', {
-  x: origin.x,
-  y: origin.y + 2 * radius * Math.sin(angle)
-});
-directions.set('up', {
-  x: origin.x,
-  y: origin.y - 2 * radius * Math.sin(angle)
-});
-
+// const origin = {
+//   x: canvas.width / 2,
+//   y: canvas.height / 2
+// }
 
 const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple']
 const harmonics = new Map();
@@ -105,11 +78,16 @@ function drawHex(centerCoordinates) {
 }
 
 function drawGrid(width, height) {
-  for (let y = radius; y + radius * Math.sin(angle) < height; y += radius * Math.sin(angle)) {
-    for (let x = radius, j = 0; x + radius * (1 + Math.cos(angle)) < width; x += radius * (1 + Math.cos(angle)), y += (-1) ** j++ * radius * Math.sin(angle)) {
+  for (let y = radius;
+    y + radius * Math.sin(angle) < height;
+    y += radius * Math.sin(angle)) {
+    for (let x = radius, j = 0;
+      x + radius * (1 + Math.cos(angle)) < width;
+      x += radius * (1 + Math.cos(angle)), y += (-1) ** j++ * radius * Math.sin(angle)) {
       let coords = { x: x, y: y }
       drawHex(coords);
-      gameBoard.set(coords, false);
+      let neighbors = findNeighbors(coords);
+      gameBoard.set(coords, { hasTile: false, neighbors: neighbors });
     }
   }
 }
@@ -135,6 +113,42 @@ function drawTile(centerCoordinates, colorSet) {
     ctx.fillStyle = fill;
     ctx.fill();
   }
+}
+
+function findNeighbors({ x, y }, direction = null) {
+  const directions = new Map();
+  directions.set('downRight', {
+    x: x + radius * (1 + Math.cos(angle)),
+    y: y + radius * Math.sin(angle)
+  });
+  directions.set('upRight', {
+    x: x + radius * (1 + Math.cos(angle)),
+    y: y - radius * Math.sin(angle)
+  });
+  directions.set('upLeft', {
+    x: x - radius * (1 + Math.cos(angle)),
+    y: y - radius * Math.sin(angle)
+  });
+  directions.set('downLeft', {
+    x: x - radius * (1 + Math.cos(angle)),
+    y: y + radius * Math.sin(angle)
+  });
+  directions.set('down', {
+    x: x,
+    y: y + 2 * radius * Math.sin(angle)
+  });
+  directions.set('up', {
+    x: x,
+    y: y - 2 * radius * Math.sin(angle)
+  });
+
+  let neighbors = [];
+  for (let value of directions.values()) {
+    if (value.x > 0 && value.x < canvas.width && value.y > 0 && value.y < canvas.height)
+      neighbors.push(value);
+  }
+  if (direction) return directions.get(direction);
+  else return neighbors;
 }
 
 function generateColorSet() {
@@ -189,17 +203,17 @@ function generateColorSet() {
 function findClosestHexCenter(coordinates) {
   let closestCenter = { x: Infinity, y: Infinity };
 
-  for (let [center, hasTile] of gameBoard) {
+  for (let [cell] of gameBoard) {
     let distanceToClosest = getDistance(coordinates, closestCenter);
-    let distanceToCurrentCenter = getDistance(coordinates, center);
+    let distanceToCurrentCenter = getDistance(coordinates, cell);
 
     if (distanceToCurrentCenter < distanceToClosest) {
-      closestCenter = center;
+      closestCenter = cell;
     }
   }
-  if (gameBoard.get(closestCenter)) return null; // Already a piece here, do nothing
+  if (gameBoard.get(closestCenter).hasTile) return null; // Already a piece here, do nothing
 
-  gameBoard.set(closestCenter, true);
+  gameBoard.set(closestCenter, { ...gameBoard.get(closestCenter), hasTile: true });
   return closestCenter;
 }
 
@@ -237,12 +251,5 @@ function init() {
 
   canvas.addEventListener('mousemove', (event) => handleMousePos(canvas, event));
   canvas.addEventListener('click', handleClick)
-  // drawHex(origin);
-  // drawHex(coordDict.get('upRight'));
-  // drawHex(coordDict.get('up'));
-  // drawHex(coordDict.get('upLeft'));
-  // drawHex(coordDict.get('downRight'));
-  // drawHex(coordDict.get('down'));
-  // drawHex(coordDict.get('downLeft'));
 }
 init();

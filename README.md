@@ -2,7 +2,7 @@
 
 ---
 
-*A tile based puzzle game based around the color spectrum.*
+*A tile puzzle game based around the color spectrum.*
 
 ---
 

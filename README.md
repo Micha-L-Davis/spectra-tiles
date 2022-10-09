@@ -46,9 +46,9 @@
 
 ## v. 0.1.4
 
-### Current Status
+### Current Status v. 0.1.4
 
-#### Game Requirements
+#### Game Requirements v. 0.1.4
 
 - [x] Canvas draws grid
 - [x] Canvas listens for click events
@@ -62,7 +62,7 @@
 - [ ] Rotate tiles 1/6th at a time (mouse wheel?)
 - [ ] Change color of closed set (based on score)
 
-#### Architecture Requirements
+#### Architecture Requirements v. 0.1.4
 
 - [ ] Break the main.js up into sensible classes/object prototypes
 - [ ] Integrate into React app

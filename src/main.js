@@ -169,27 +169,21 @@ class Tile {
 	constructor(centerCoordinates, trigons) {
 		console.log(trigons)
 		this.centerCoordinates = centerCoordinates;
-		// this.types = {
-		// 	count: colorSet.length,
-		// 	list: colorSet,
-		// 	trigons: colorSetToTrigonArray(colorSet)
-		// }
 		this.trigons = trigons;
 		this.isHeld = true;
 	};
 
 	rotate = (dir) => {
-		if (this === heldTile)
-			if (dir === -1) {
-				let first = this.types.list.shift();
-				this.types.list.push(first);
-			}
-		if (dir === 1) {
-			let last = this.types.list.pop();
-			this.types.list.unshift(last);
+		if (dir === -1) {
+			let first = this.trigons.shift();
+			this.trigons.push(first);
 		}
-
-		// redraw held tile
+		if (dir === 1) {
+			let last = this.trigons.pop();
+			this.trigons.unshift(last);
+		}
+		console.log(this.trigons);
+		this.draw();
 	};
 
 	draw = (isPlacing = false) => {
@@ -411,12 +405,13 @@ function handleClick() {
 }
 
 function handleWheelDirection(event) {
+	if (event) console.log(event.deltaY);
 	if (!heldTile) return;
-	if (event.detail < 0) {
+	if (event.deltaY < 0) {
 		heldTile.rotate(1);
 		return;
 	}
-	if (event.detail > 0) {
+	if (event.deltaY > 0) {
 		heldTile.rotate(-1);
 		return;
 	}
@@ -428,7 +423,7 @@ function init() {
 
 	canvas.addEventListener('mousemove', (event) => handleMousePos(canvas, event));
 	canvas.addEventListener('click', handleClick);
-	canvas.addEventListener('wheel', handleWheelDirection);
+	canvas.addEventListener('wheel', (event) => handleWheelDirection(event));
 }
 init();
 // while (true) {

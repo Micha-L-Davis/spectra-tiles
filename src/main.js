@@ -410,12 +410,25 @@ function handleClick() {
 	render();
 }
 
+function handleWheelDirection(event) {
+	if (!heldTile) return;
+	if (event.detail < 0) {
+		heldTile.rotate(1);
+		return;
+	}
+	if (event.detail > 0) {
+		heldTile.rotate(-1);
+		return;
+	}
+}
+
 function init() {
 	heldTile = new Tile(mousePos, generateColorSet());
 	render();
 
 	canvas.addEventListener('mousemove', (event) => handleMousePos(canvas, event));
-	canvas.addEventListener('click', handleClick)
+	canvas.addEventListener('click', handleClick);
+	canvas.addEventListener('wheel', handleWheelDirection);
 }
 init();
 // while (true) {

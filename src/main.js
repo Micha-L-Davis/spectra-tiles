@@ -2,6 +2,11 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+const rotationCooldown = 250;
+const maxTileQuantity = 4;
+let tileCount = 0;
+let lastTilePlayed = null;
+
 const angle = 2 * Math.PI / 6; // 60 degrees
 const radius = 50;
 // const origin = {
@@ -99,185 +104,7 @@ function drawGrid(width, height) {
 }
 //#endregion
 
-function colorSetToTrigonArray(colorSet) {
-	let array = []
-	let regions = [...colorSet];
-	while (regions.length) {
-		let region = regions.shift();
-		processRegion(region);
-	}
-
-	return array;
-
-	function processRegion(region) {
-		//console.log("processing ", region)
-
-		let color = region.color;
-		let size = region.size;
-		let pattern = region.pattern;
-
-		if (array.length > 5) {
-			console.warn('Tile array is full!');
-			return;
-		}
-		switch (pattern) {
-			case 'split':
-				let first = Math.ceil(size / 2);
-				let remaining = Math.floor(size / 2);
-				while (first) {
-					console.log("adding trigon of ", color);
-					array.push(color);
-					first--;
-				}
-
-				let nextRegion = regions.shift();
-				regions.unshift({ color: color, size: remaining, pattern: 'clump' });
-				if (nextRegion) {
-					regions.unshift(nextRegion);
-				}
-				break;
-			case 'clump':
-				let total = size;
-				while (total) {
-					array.push(color)
-					total--;
-				}
-				break;
-			case 'none':
-				let rand = randomIntExclusive(size + 1)
-				let rem = size - rand;
-
-				while (rand) {
-					array.push(color)
-					rand--;
-				}
-				if (rem) {
-					let next = regions.shift();
-					regions.unshift({ color: color, size: rem, pattern: 'clump' });
-					if (next) {
-						regions.unshift(next);
-					}
-				}
-				break;
-		}
-	}
-}
-
-let heldTile;
-
-class Tile {
-	constructor(centerCoordinates, trigons) {
-		console.log(trigons)
-		this.centerCoordinates = centerCoordinates;
-		this.trigons = trigons;
-		this.isHeld = true;
-	};
-
-	rotate = (dir) => {
-		if (dir === -1) {
-			let first = this.trigons.shift();
-			this.trigons.push(first);
-		}
-		if (dir === 1) {
-			let last = this.trigons.pop();
-			this.trigons.unshift(last);
-		}
-		console.log(this.trigons);
-		this.draw();
-	};
-
-	draw = (isPlacing = false) => {
-		let { x, y } = this.centerCoordinates;
-		let fillArray = this.trigons;
-		let i = 0;
-		for (let i = 0; i < 6; i++) {
-			ctx.beginPath();
-			ctx.lineTo(
-				x + radius * Math.cos(angle * i),
-				y + radius * Math.sin(angle * i)
-			);
-			ctx.lineTo(
-				x + radius * Math.cos(angle * i + 1.04),
-				y + radius * Math.sin(angle * i + 1.04)
-			);
-			ctx.lineTo(x, y);
-			ctx.closePath();
-			ctx.stroke();
-			ctx.fillStyle = fillArray[i];
-			ctx.fill();
-		}
-
-		if (isPlacing) {
-			this.isHeld = false;
-			heldTile = null;
-		}
-	}
-}
-
-function findOppositeTrigon(index) {
-	if (index >= 3) {
-		return index - 3;
-	} else {
-		return index + 3;
-	}
-}
-
-function scoreGraph() {
-	// caculate closed regions
-	let closedRegions = calculateClosedRegions();
-	// add each closed region to scoreboard
-}
-
-function calculateClosedRegions() {
-	let closedRegions = new Map();
-	// closedRegions map will be a numeric key and a region map
-	let region = new Map();
-	// region map is a tile object key and the trigon index of all member parts
-
-	// Do a traversal here
-	// During traversal add tiles and their member trigons to region
-	// end traversal when expanding the region becomes impossible 
-	// add complete region to closedRegions map
-
-	return closedRegions;
-}
-
-function findNeighbors({ x, y }, direction = null) {
-	const directions = new Map();
-	directions.set('downRight', {
-		x: x + radius * (1 + Math.cos(angle)),
-		y: y + radius * Math.sin(angle)
-	});
-	directions.set('upRight', {
-		x: x + radius * (1 + Math.cos(angle)),
-		y: y - radius * Math.sin(angle)
-	});
-	directions.set('upLeft', {
-		x: x - radius * (1 + Math.cos(angle)),
-		y: y - radius * Math.sin(angle)
-	});
-	directions.set('downLeft', {
-		x: x - radius * (1 + Math.cos(angle)),
-		y: y + radius * Math.sin(angle)
-	});
-	directions.set('down', {
-		x: x,
-		y: y + 2 * radius * Math.sin(angle)
-	});
-	directions.set('up', {
-		x: x,
-		y: y - 2 * radius * Math.sin(angle)
-	});
-
-	let neighbors = [];
-	for (let value of directions.values()) {
-		if (value.x > 0 && value.x < canvas.width && value.y > 0 && value.y < canvas.height)
-			neighbors.push(value);
-	}
-	if (direction) return directions.get(direction);
-	else return neighbors;
-}
-
+//#region Trigon Generation Functions
 function generateColorSet() {
 	// let colorCount = randomIntExclusive(3) + 1;
 
@@ -315,7 +142,7 @@ function generateColorSet() {
 		}
 		return colorSetToTrigonArray(regions);
 	}
-	console.log(regions);
+
 	function filterColor(array, colorToRemove) {
 		return array.filter(color => color !== colorToRemove);
 	}
@@ -327,6 +154,224 @@ function generateColorSet() {
 			pattern: randomIndex(patterns)
 		}
 	}
+}
+
+function colorSetToTrigonArray(colorSet) {
+	let array = []
+	let regions = [...colorSet];
+	while (regions.length) {
+		let region = regions.shift();
+		processRegion(region);
+	}
+
+	return array;
+
+	function processRegion(region) {
+		//console.log("processing ", region)
+
+		let color = region.color;
+		let size = region.size;
+		let pattern = region.pattern;
+
+		if (array.length > 5) {
+			console.warn('Tile array is full!');
+			return;
+		}
+		switch (pattern) {
+			case 'split':
+				let first = Math.ceil(size / 2);
+				let remaining = Math.floor(size / 2);
+				while (first) {
+					//console.log("adding trigon of ", color);
+					array.push(new Trigon(color));
+					first--;
+				}
+
+				let nextRegion = regions.shift();
+				regions.unshift({ color: color, size: remaining, pattern: 'clump' });
+				if (nextRegion) {
+					regions.unshift(nextRegion);
+				}
+				break;
+			case 'clump':
+				let total = size;
+				while (total) {
+					array.push(new Trigon(color))
+					total--;
+				}
+				break;
+			case 'none':
+				let rand = randomIntExclusive(size + 1)
+				let rem = size - rand;
+
+				while (rand) {
+					array.push(new Trigon(color))
+					rand--;
+				}
+				if (rem) {
+					let next = regions.shift();
+					regions.unshift({ color: color, size: rem, pattern: 'clump' });
+					if (next) {
+						regions.unshift(next);
+					}
+				}
+				break;
+		}
+	}
+}
+//#endregion
+
+let heldTile;
+
+class Tile {
+	constructor(centerCoordinates, trigons) {
+		//console.log(trigons)
+		this.centerCoordinates = centerCoordinates;
+		this.trigons = trigons;
+		this.isHeld = true;
+	};
+
+	rotate = (dir) => {
+		let now = Date.now();
+		if (now < this.nextRotationTime) return;
+
+		if (dir === -1) {
+			let first = this.trigons.shift();
+			this.trigons.push(first);
+		}
+		if (dir === 1) {
+			let last = this.trigons.pop();
+			this.trigons.unshift(last);
+		}
+		//console.log(this.trigons);
+		this.nextRotationTime = Date.now() + rotationCooldown;
+		this.draw();
+	};
+
+	draw = (isPlacing = false) => {
+		let { x, y } = this.centerCoordinates;
+		let fillArray = this.trigons;
+		let i = 0;
+		for (let i = 0; i < 6; i++) {
+			ctx.beginPath();
+			ctx.lineTo(
+				x + radius * Math.cos(angle * i),
+				y + radius * Math.sin(angle * i)
+			);
+			ctx.lineTo(
+				x + radius * Math.cos(angle * i + 1.04),
+				y + radius * Math.sin(angle * i + 1.04)
+			);
+			ctx.lineTo(x, y);
+			ctx.closePath();
+			ctx.stroke();
+			ctx.fillStyle = fillArray[i].color;
+			ctx.fill();
+		}
+
+		if (isPlacing) {
+			this.isHeld = false;
+			heldTile = null;
+		}
+	}
+}
+
+class Trigon {
+	constructor(color) {
+		this.color = color;
+		this.isClosed = false;
+		this.score = 0;
+	}
+}
+
+function findOppositeTrigon(direction) {
+	if (direction >= 3) {
+		return direction - 3;
+	} else {
+		return direction + 3;
+	}
+}
+
+//#region Score
+
+function scoreGraph() {
+	// caculate closed regions
+	let closedRegions = calculateClosedRegions();
+	// add each closed region to scoreboard
+
+	function calculateClosedRegions() {
+		traverseTiles(lastTilePlayed, (tile) => {
+			for (let i = 0; i < tile.trigons.length; i++) {
+				let trigon = tile.trigons[i];
+				if (trigon.isClosed) return;
+
+				let [adjacentTile] = findNeighbors(tile.centerCoordinates, i);
+				let adjacentTrigon = adjacentTile.trigons(findOppositeTrigon(i));
+
+			}
+		});
+
+
+
+		return closedRegions;
+	}
+
+	function traverseTiles(first, workFunction) {
+		const viewed = new Set();
+		const queue = [first];
+
+		while (queue.length > 0) {
+			const tile = queue.shift();
+			const neighbors = findNeighbors(tile.centerCoordinates);
+
+			for (let neighbor of neighbors) {
+				workFunction(neighbor);
+
+				if (!viewed.has(neighbor)) {
+					viewed.add(neighbor);
+					queue.push(neighbor);
+				}
+			}
+		}
+	}
+}
+
+
+//#endregion 
+function findNeighbors({ x, y }, direction = null) {
+	const directions = new Map();
+	directions.set(0/*'downRight'*/, {
+		x: x + radius * (1 + Math.cos(angle)),
+		y: y + radius * Math.sin(angle)
+	});
+	directions.set(1/*'down'*/, {
+		x: x,
+		y: y + 2 * radius * Math.sin(angle)
+	});
+	directions.set(2/*'downLeft'*/, {
+		x: x - radius * (1 + Math.cos(angle)),
+		y: y + radius * Math.sin(angle)
+	});
+	directions.set(3/*'upLeft'*/, {
+		x: x - radius * (1 + Math.cos(angle)),
+		y: y - radius * Math.sin(angle)
+	});
+	directions.set(4/*'up'*/, {
+		x: x,
+		y: y - 2 * radius * Math.sin(angle)
+	});
+	directions.set(5/*'upRight'*/, {
+		x: x + radius * (1 + Math.cos(angle)),
+		y: y - radius * Math.sin(angle)
+	});
+
+	let neighbors = [];
+	for (let value of directions.values()) {
+		if (value.x > 0 && value.x < canvas.width && value.y > 0 && value.y < canvas.height)
+			neighbors.push(value);
+	}
+	if (direction) return directions.get(direction);
+	else return neighbors;
 }
 
 function findClosestHexCenter(coordinates) {
@@ -363,7 +408,8 @@ function randomIndex(array) {
 const randomIntExclusive = (max) => Math.floor(Math.random() * max);
 
 function update() {
-	if (!heldTile) {
+	console.log()
+	if (!heldTile && tileCount < maxTileQuantity) {
 		heldTile = new Tile(mousePos, generateColorSet());
 	}
 }
@@ -375,7 +421,7 @@ function render() {
 		let tile = gameBoard.get(cell).tile;
 		if (tile) tile.draw();
 	}
-	heldTile.draw();
+	if (heldTile) heldTile.draw();
 }
 
 
@@ -393,11 +439,14 @@ function handleMousePos(canvas, event) {
 }
 
 function handleClick() {
+	if (!heldTile) return;
+
 	let center = findClosestHexCenter(mousePos);
 	if (center) {
 		heldTile.centerCoordinates = center;
 		gameBoard.set(center, { tile: heldTile, neighbors: gameBoard.get(center).neighbors });
 		heldTile.draw(true);
+		tileCount++;
 	}
 
 	update();
@@ -405,7 +454,7 @@ function handleClick() {
 }
 
 function handleWheelDirection(event) {
-	if (event) console.log(event.deltaY);
+	//if (event) console.log(event.deltaY);
 	if (!heldTile) return;
 	if (event.deltaY < 0) {
 		heldTile.rotate(1);
